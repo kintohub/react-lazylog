@@ -164,6 +164,8 @@ export default class LazyLog extends Component {
      * Specify an alternate component to use when loading.
      */
     loadingComponent: any,
+
+    loadingText: string,
     /**
      * Specify an additional className to append to lines.
      */
@@ -182,6 +184,8 @@ export default class LazyLog extends Component {
      * Flag to enable/disable case insensitive search
      */
     caseInsensitive: bool,
+
+    onScroll: func,
   };
 
   static defaultProps = {
@@ -210,9 +214,11 @@ export default class LazyLog extends Component {
     websocketOptions: {},
     fetchOptions: { credentials: 'omit' },
     loadingComponent: Loading,
+    loadingText: '',
     lineClassName: '',
     highlightLineClassName: '',
     caseInsensitive: false,
+    onScroll: () => {},
   };
 
   static getDerivedStateFromProps(
@@ -618,12 +624,13 @@ export default class LazyLog extends Component {
     );
   }
 
-  renderRow = ({ key, index, style }) => {
+  renderRow = ({ key, index, style }, rowCount) => {
     const {
       rowHeight,
       selectableLines,
       lineClassName,
       highlightLineClassName,
+      loadingText,
     } = this.props;
     const {
       highlight,
@@ -638,7 +645,21 @@ export default class LazyLog extends Component {
       ? resultLineUniqueIndexes[index]
       : index + 1 + offset;
 
-    return (
+    return index === rowCount - 1 && loadingText ? (
+      <Line
+        className={lineClassName}
+        highlightClassName={highlightLineClassName}
+        rowHeight={rowHeight}
+        style={style}
+        key={key}
+        number={number}
+        formatPart={this.handleFormatPart()}
+        selectable={selectableLines}
+        highlight={highlight.includes(number)}
+        onLineNumberClick={this.handleHighlight}
+        data={ansiparse(loadingText)}
+      />
+    ) : (
       <Line
         className={lineClassName}
         highlightClassName={highlightLineClassName}
@@ -708,6 +729,8 @@ export default class LazyLog extends Component {
       count,
     } = this.state;
     const rowCount = isFilteringLinesWithMatches ? filteredLines.size : count;
+    const actualRowCount =
+      rowCount === 0 ? rowCount : rowCount + this.props.extraLines + 1;
 
     return (
       <Fragment>
@@ -727,10 +750,8 @@ export default class LazyLog extends Component {
           {({ height, width }) => (
             <VirtualList
               className={`react-lazylog ${lazyLog}`}
-              rowCount={
-                rowCount === 0 ? rowCount : rowCount + this.props.extraLines
-              }
-              rowRenderer={row => this.renderRow(row)}
+              rowCount={actualRowCount}
+              rowRenderer={row => this.renderRow(row, actualRowCount)}
               noRowsRenderer={this.renderNoRows}
               {...this.props}
               height={this.calculateListHeight(height)}
